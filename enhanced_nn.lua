@@ -402,7 +402,16 @@ local function save_weights()
             hidden_size = NN.hidden_size,
             output_size = NN.output_size
         },
-        weights = NN.weights
+        weights = {
+            hidden1 = NN.weights.hidden1,
+            hidden2 = NN.weights.hidden2,
+            hidden3 = NN.weights.hidden3,
+            output  = NN.weights.output,
+            m_hidden1 = NN.weights.m_hidden1,
+            m_hidden2 = NN.weights.m_hidden2,
+            m_hidden3 = NN.weights.m_hidden3,
+            m_output  = NN.weights.m_output
+        }
     }
 
     local ok, encoded = pcall(json.stringify, data)
@@ -429,7 +438,48 @@ local function load_weights()
         return false
     end
 
-    NN.weights = data.weights
+    -- Load the saved weights
+    NN.weights.hidden1 = data.weights.hidden1 or {}
+    NN.weights.hidden2 = data.weights.hidden2 or {}
+    NN.weights.hidden3 = data.weights.hidden3 or {}
+    NN.weights.output  = data.weights.output  or {}
+    
+    -- Load momentum buffers if they exist, otherwise initialize them to zeros
+    NN.weights.m_hidden1 = data.weights.m_hidden1 or {}
+    NN.weights.m_hidden2 = data.weights.m_hidden2 or {}
+    NN.weights.m_hidden3 = data.weights.m_hidden3 or {}
+    NN.weights.m_output  = data.weights.m_output  or {}
+    
+    -- Initialize missing momentum buffers to zeros
+    if #NN.weights.m_hidden1 == 0 then
+        for i = 1, NN.input_size do
+            NN.weights.m_hidden1[i] = {}
+            for j = 1, NN.hidden_size do
+                NN.weights.m_hidden1[i][j] = 0
+            end
+        end
+    end
+    
+    if #NN.weights.m_hidden2 == 0 then
+        for i = 1, NN.hidden_size do
+            NN.weights.m_hidden2[i] = {}
+            NN.weights.m_hidden3[i] = {}
+            for j = 1, NN.hidden_size do
+                NN.weights.m_hidden2[i][j] = 0
+                NN.weights.m_hidden3[i][j] = 0
+            end
+        end
+    end
+    
+    if #NN.weights.m_output == 0 then
+        for i = 1, NN.hidden_size do
+            NN.weights.m_output[i] = {}
+            for j = 1, NN.output_size do
+                NN.weights.m_output[i][j] = 0
+            end
+        end
+    end
+    
     return true
 end
 
@@ -439,9 +489,11 @@ end
 
 local function initialize()
     if not load_weights() then
+        -- No saved weights found, initialize from scratch
         init_weights_if_needed()
     else
-        -- ensure momentum buffers exist
+        -- Weights loaded successfully, ensure all buffers exist
+        -- This handles cases where some buffers might be partially missing
         init_weights_if_needed()
     end
 end
